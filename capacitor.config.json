@@ -1,0 +1,19 @@
+
+{
+  "appId": "com.morningstar.basketballagent2026",
+  "appName": "Basketball Agent 2026",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "Haptics": {
+      "enabled": true
+    },
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#0a0a0c"
+    }
+  }
+}
