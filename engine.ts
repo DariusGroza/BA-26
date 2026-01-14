@@ -1,6 +1,5 @@
-
 import { GameState, Player, Team, Match, GameNotification, DraftPhase, LeaguePhase, SeasonAwards, Conference, GameDecision, Loan, Manager } from './types';
-import { simulateMatch, generateId, convertPlayerToManager } from './utils';
+import { simulateMatch, generateId, convertPlayerToManager, generatePlayer } from './utils';
 import { AGENT_COMMISSION, WEEKLY_EXPENSES } from './constants';
 
 const BAD_EVENTS: Omit<GameDecision, 'id' | 'playerId'>[] = [
@@ -64,13 +63,14 @@ export const advanceWeek = (
   let finalNextWeek = nextWeek;
   let isNewYear = false;
   let inflationFactor = 1.0;
+  let bonusAcademyPlayers: Player[] = [];
   
   if (nextWeek > 52) {
     finalNextWeek = 1;
     currentYear += 1;
     isNewYear = true;
     inflationFactor = 1.03 + (Math.random() * 0.04);
-    notifications.push({ id: generateId(), title: 'Economic Shift', message: `Annual inflation is ${(inflationFactor*100-100).toFixed(1)}%. Costs increased.`, week: 1, type: 'warning' });
+    notifications.push({ id: generateId(), title: 'Happy New Year!', message: `The ${currentYear} season has officially begun. Annual graduates are arriving.`, week: 1, type: 'success' });
   }
 
   let loanInterest = 0;
@@ -81,8 +81,31 @@ export const advanceWeek = (
   });
 
   const updatedTeams = teams.map(t => {
-    if (t.isUniversity) return t;
+    if (t.isUniversity) {
+      if (isNewYear) return { ...t, wins: 0, losses: 0 };
+      return t;
+    }
     
+    // ACADEMY BENEFIT: Yearly Youth Graduation
+    if (isNewYear && t.academyLevel > 0) {
+      const graduate = generatePlayer(t.id, true, false);
+      const ratingBump = (t.academyLevel - 1) * 6;
+      const potentialBump = (t.academyLevel - 1) * 5;
+      graduate.rating = Math.min(88, 65 + ratingBump + Math.floor(Math.random() * 5));
+      graduate.stats.potential = Math.min(99, 78 + potentialBump);
+      graduate.name += " (H.G.)"; // Home Grown
+      bonusAcademyPlayers.push(graduate);
+      t.roster.push(graduate.id);
+      
+      if (t.id === currentState.managedTeamId) {
+        notifications.push({ id: generateId(), title: 'Academy Graduate', message: `A promising homegrown prospect (${graduate.rating} OVR) has joined your team.`, week: 1, type: 'success' });
+      }
+    }
+
+    // STADIUM BENEFIT: Revenue Multiplier (25% per level)
+    const stadiumMultiplier = 1 + ((t.stadiumLevel - 1) * 0.25);
+    const baseRev = ((t.rating * 160 * (t.ticketPrice || 120)) + (t.rating * 1200)) * stadiumMultiplier;
+
     let performanceFactor = 0;
     const totalGames = t.wins + t.losses;
     if (totalGames > 10) {
@@ -94,12 +117,10 @@ export const advanceWeek = (
     const randomFluctuation = (Math.random() * 0.02 - 0.01); 
     let valuationChange = 1 + performanceFactor + randomFluctuation;
 
-    if (isNewYear) valuationChange *= (inflationFactor * 1.02); 
+    if (isNewYear) {
+      valuationChange *= (inflationFactor * 1.02); 
+    }
 
-    const updatedValuation = t.valuation * valuationChange;
-    const baseRev = (t.rating * 150 * (t.ticketPrice || 120)) + (t.rating * 1000);
-
-    // Dynamic Market Trends
     let marketTrend: 'BULLISH' | 'BEARISH' | 'STABLE' = t.marketTrend || 'STABLE';
     const trendRoll = Math.random();
     if (trendRoll < 0.15) {
@@ -110,49 +131,48 @@ export const advanceWeek = (
 
     return { 
       ...t, 
-      valuation: updatedValuation,
-      sharePrice: updatedValuation / 100,
+      wins: isNewYear ? 0 : t.wins,
+      losses: isNewYear ? 0 : t.losses,
+      valuation: t.valuation * valuationChange,
+      sharePrice: (t.valuation * valuationChange) / 100,
       weeklyRevenue: baseRev,
       marketTrend
     };
   });
 
   const newManagers: Manager[] = [];
-  const updatedPlayers = players.map(p => {
+  let updatedPlayers = [...players, ...bonusAcademyPlayers].map(p => {
     let newP = { ...p };
+    const pTeam = updatedTeams.find(t => t.id === p.teamId);
+
     if (isNewYear) {
       newP.age++;
       newP.salary *= inflationFactor;
       newP.marketValue *= (inflationFactor + (newP.rating > 85 ? 0.05 : 0));
-      
+      newP.seasonStats = { pts: 0, reb: 0, ast: 0, gamesPlayed: 0, minutesPerGame: 0 };
+
       if (newP.age >= newP.retirementAge && !newP.isRetired) {
         newP.isRetired = true;
         newP.teamId = null;
         const retirementNote = { id: generateId(), title: 'Retirement', message: `${newP.name} has hung up his jersey.`, week: 1, type: 'info' as const };
         notifications.push(retirementNote);
-        
         if (newP.rating >= 85) {
           breakingNews = { ...retirementNote, title: 'LEGEND RETIRES', message: `End of an era as ${newP.name} officially retires from professional basketball.` };
         }
-        
         if (newP.rating > 70 || newP.isClient) {
           const m = convertPlayerToManager(newP);
           newManagers.push(m);
-          if (m.isClient) {
-            notifications.push({ id: generateId(), title: 'New Career', message: `Your former client ${newP.name} is now open for coaching representation.`, week: 1, type: 'success' });
-          }
         }
       }
     }
 
     if (newP.injuryWeeks > 0) {
-      newP.injuryWeeks--;
-      if (newP.injuryWeeks === 0 && newP.injurySeverity === 'Severe' && Math.random() < 0.25) {
-        newP.isChronic = true;
-        newP.stats.athleticism = Math.max(30, newP.stats.athleticism - 4);
-        newP.stats.defense = Math.max(30, newP.stats.defense - 2);
-        newP.rating = Math.floor((newP.stats.scoring + newP.stats.defense + newP.stats.playmaking + newP.stats.athleticism) / 4);
-        notifications.push({ id: generateId(), title: 'Medical Report', message: `${newP.name}'s ${newP.injuryType} has left permanent physical scarring.`, week: currentState.week, type: 'danger' });
+      // MEDICAL BENEFIT: Faster recovery speed (15% per level)
+      const recoveryBoost = pTeam ? (pTeam.medicalLevel - 1) * 0.15 : 0;
+      if (Math.random() < recoveryBoost) {
+        newP.injuryWeeks = Math.max(0, newP.injuryWeeks - 2);
+      } else {
+        newP.injuryWeeks--;
       }
     }
     return newP;
@@ -165,48 +185,45 @@ export const advanceWeek = (
     for (let i = 0; i < shuffledPro.length; i += 2) {
       if (shuffledPro[i + 1]) {
         const m = simulateMatch(shuffledPro[i], shuffledPro[i + 1], finalNextWeek, false, updatedPlayers);
+        
+        // MEDICAL BENEFIT: Injury Prevention (15% reduction per level)
+        m.details?.topPerformers.forEach(tp => {
+          const p = updatedPlayers.find(up => up.name === tp.name);
+          if (p && p.injuryWeeks > 0) {
+             const team = updatedTeams.find(t => t.id === p.teamId);
+             if (team && Math.random() < (team.medicalLevel - 1) * 0.15) {
+                p.injuryWeeks = 0; // Prevented by medical staff
+                p.injuryType = null;
+             }
+          }
+        });
+
         newPlayedMatches.push(m);
         const winnerId = m.homeScore > m.awayScore ? m.homeTeamId : m.awayTeamId;
         const loserId = m.homeScore > m.awayScore ? m.awayTeamId : m.homeTeamId;
-        
-        const winner = updatedTeams.find(t => t.id === winnerId)!;
-        const loser = updatedTeams.find(t => t.id === loserId)!;
-        
-        winner.wins++; 
-        loser.losses++;
-        winner.chemistry = Math.min(100, winner.chemistry + 0.5);
-        loser.chemistry = Math.max(0, loser.chemistry - 0.5);
-
-        const topPerformersWithInjuries = m.details?.topPerformers.filter(tp => {
-          const p = updatedPlayers.find(up => up.name === tp.name);
-          return p && p.injuryWeeks > 0 && p.injurySeverity === 'Severe';
-        });
-        if (topPerformersWithInjuries && topPerformersWithInjuries.length > 0 && !breakingNews) {
-          breakingNews = { id: generateId(), title: 'BREAKING: INJURY ALERT', message: `${topPerformersWithInjuries[0].name} has sustained a potentially season-ending injury.`, week: currentState.week, type: 'danger' };
-        }
+        updatedTeams.find(t => t.id === winnerId)!.wins++; 
+        updatedTeams.find(t => t.id === loserId)!.losses++;
       }
     }
   }
 
+  // SCOUTING BENEFIT: Weekly Scouting Point Yield
+  const ownedTeam = updatedTeams.find(t => t.id === currentState.managedTeamId);
+  const bonusSP = ownedTeam ? Math.floor(ownedTeam.scoutingLevel * 1.5) : 0;
+
   let activeDecision = currentState.activeDecision;
   const myClients = updatedPlayers.filter(p => p.isClient && p.teamId && !p.isRetired);
   if (!activeDecision && myClients.length > 0 && Math.random() < 0.08) { 
-    const isGood = Math.random() > 0.65;
-    const pool = isGood ? GOOD_EVENTS : BAD_EVENTS;
+    const pool = Math.random() > 0.65 ? GOOD_EVENTS : BAD_EVENTS;
     const randomEvent = pool[Math.floor(Math.random() * pool.length)];
     activeDecision = { ...randomEvent, id: generateId(), playerId: myClients[0].id };
   }
 
-  // BALANCED INCOME: (Salary % Comm) + Flat Weekly Retainer
   let income = updatedPlayers.filter(p => p.isClient && !p.isRetired).reduce((acc, p) => {
-    const commission = (p.salary / 52) * (p.agentCommission || 0.04);
-    const retainer = p.agentRetainer || 0;
-    return acc + commission + retainer;
+    return acc + ((p.salary / 52) * (p.agentCommission || 0.04));
   }, 0);
   
   const investmentYield = updatedTeams.reduce((acc, t) => acc + (t.weeklyRevenue * (t.userShares / 100) * 0.05), 0);
-  
-  // BALANCED EXPENSES: Base + Level-based scalability (more aggressive scaling)
   const totalWeeklyExpenses = (WEEKLY_EXPENSES + (currentState.officeLevel * 12000) + (currentState.officeItems.length * 3500)) * (isNewYear ? inflationFactor : 1);
 
   return {
@@ -215,7 +232,7 @@ export const advanceWeek = (
       week: finalNextWeek, 
       year: currentYear, 
       cash: currentState.cash + income + investmentYield - totalWeeklyExpenses - loanInterest,
-      reputation: currentState.reputation, 
+      scoutingPoints: currentState.scoutingPoints + bonusSP,
       loans: updatedLoans, 
       activeDecision, 
       breakingNews: breakingNews || null,
@@ -223,7 +240,7 @@ export const advanceWeek = (
     },
     updatedPlayers, 
     updatedTeams, 
-    newMatches: newPlayedMatches.concat(matches).slice(0, 200),
+    newMatches: newPlayedMatches.concat(matches).slice(0, 400),
     newManagers
   };
 };

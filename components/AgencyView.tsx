@@ -256,7 +256,7 @@ const AgencyView: React.FC<AgencyViewProps> = ({
                 <tbody className="divide-y divide-white/[0.02]">
                    {clients.map(p => (
                      <tr key={p.id} className="hover:bg-white/[0.01]">
-                        <td className="px-4 py-2 flex items-center space-x-3">
+                        <td className="px-4 py-2 flex items-center space-x-3 cursor-pointer" onClick={() => onSelectPlayer(p)}>
                            <span className="text-2xl">{p.face}</span>
                            <div className="min-w-0">
                               <p className="text-[10px] font-bold text-white truncate">{p.name}</p>
@@ -300,9 +300,9 @@ const AgencyView: React.FC<AgencyViewProps> = ({
       )}
 
       {activeTab === 'ACADEMY' && (
-        <div className="bg-[#111114] rounded-2xl border border-white/5 overflow-hidden">
+        <div className="bg-[#111114] rounded-2xl border border-white/5 overflow-hidden shadow-xl">
            <table className="w-full text-left">
-              <thead className="bg-white/5 text-[7px] font-black text-gray-500 uppercase tracking-widest">
+              <thead className="bg-white/5 text-[7px] font-black text-gray-500 uppercase tracking-widest border-b border-white/5">
                  <tr>
                     <th className="px-4 py-3">Identity</th>
                     <th className="px-4 py-3 text-center">Rating</th>
@@ -311,20 +311,28 @@ const AgencyView: React.FC<AgencyViewProps> = ({
               </thead>
               <tbody className="divide-y divide-white/[0.02]">
                  {academy.map(p => (
-                   <tr key={p.id} className="hover:bg-white/[0.01]">
-                      <td className="px-4 py-2 flex items-center space-x-3">
-                         <span className="text-2xl">{p.face}</span>
+                   <tr key={p.id} className="hover:bg-white/[0.01] transition-colors group">
+                      <td className="px-4 py-2 flex items-center space-x-3 cursor-pointer" onClick={() => onSelectPlayer(p)}>
+                         <span className="text-2xl group-hover:scale-110 transition-transform">{p.face}</span>
                          <div>
-                            <p className="text-[10px] font-bold text-white">{p.name}</p>
+                            <p className="text-[10px] font-bold text-white group-hover:text-orange-500 transition-colors">{p.name}</p>
                             <p className="text-[6px] text-gray-600 font-black uppercase">{p.position} • {p.age}y</p>
                          </div>
                       </td>
                       <td className="px-4 py-2 text-center font-sporty text-lg text-blue-400">{p.rating}</td>
                       <td className="px-4 py-2 text-right">
-                         <button className="bg-white/5 text-gray-500 text-[7px] font-black px-2 py-1 rounded uppercase">Academy Path</button>
+                         <button 
+                           onClick={() => onSelectPlayer(p)}
+                           className="bg-white/5 hover:bg-orange-600 text-white text-[7px] font-black px-2 py-1 rounded uppercase transition-all"
+                         >
+                           Details
+                         </button>
                       </td>
                    </tr>
                  ))}
+                 {academy.length === 0 && (
+                   <tr><td colSpan={3} className="py-20 text-center text-gray-700 italic text-[9px] font-black uppercase tracking-widest">No youth prospects under representation.</td></tr>
+                 )}
               </tbody>
            </table>
         </div>

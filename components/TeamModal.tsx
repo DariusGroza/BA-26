@@ -14,7 +14,7 @@ const TeamModal: React.FC<TeamModalProps> = ({ team, players, onClose, onSelectP
   const isUni = !!team.isUniversity;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[85] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
       <div className="absolute inset-0 bg-[#0a0a0c]/90 backdrop-blur-xl" onClick={onClose}></div>
       
       <div className="relative bg-[#111114] border border-white/10 w-full max-w-4xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-full max-h-[800px] animate-in slide-in-from-bottom-12 duration-300">

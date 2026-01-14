@@ -28,7 +28,7 @@ const InteractionModal: React.FC<InteractionModalProps> = ({ player, onInteract,
   const status = getStatus(player.loyalty);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
       <div className="absolute inset-0 bg-black/95 backdrop-blur-2xl" onClick={onClose}></div>
       <div className="relative bg-[#111114] border border-white/10 w-full max-w-xl rounded-[3rem] p-10 space-y-8 animate-in zoom-in-95 shadow-2xl overflow-hidden">
         

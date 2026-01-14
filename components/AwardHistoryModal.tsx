@@ -50,8 +50,8 @@ const AwardHistoryModal: React.FC<AwardHistoryModalProps> = ({ category, history
                     <span className="text-3xl group-hover:scale-110 transition-transform">{p.face}</span>
                     <div className="min-w-0">
                        <p className={`text-[7px] font-black uppercase tracking-widest ${aw.color}`}>{aw.type}</p>
-                       <p className="text-xs font-bold text-white truncate">{p.name}</p>
-                       <p className="text-[8px] text-gray-600 font-bold uppercase truncate">{t?.name || 'Retired'}</p>
+                       <p className="text-xs font-bold text-zinc-200 truncate">{p.name}</p>
+                       <p className="text-[8px] text-zinc-600 font-bold uppercase truncate">{t?.name || 'Retired'}</p>
                     </div>
                  </div>
                </div>
@@ -71,7 +71,7 @@ const AwardHistoryModal: React.FC<AwardHistoryModalProps> = ({ category, history
            <div className="flex items-center space-x-6">
               <span className="text-6xl">{info.icon}</span>
               <div>
-                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-1">League Archives</p>
+                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] mb-1">APEX Records</p>
                  <h2 className={`text-5xl font-sporty ${info.color} uppercase tracking-tight`}>{info.title}</h2>
               </div>
            </div>
@@ -85,13 +85,12 @@ const AwardHistoryModal: React.FC<AwardHistoryModalProps> = ({ category, history
              <div className="py-20 text-center opacity-30 flex flex-col items-center">
                 <span className="text-6xl mb-6">📜</span>
                 <p className="text-sm font-black uppercase tracking-[0.3em]">No historical records available</p>
-                <p className="text-[10px] uppercase font-bold mt-2">Finish a season to start the archives</p>
              </div>
            )}
         </div>
 
         <div className="p-6 bg-black/40 text-center border-t border-white/5">
-           <p className="text-[7px] text-gray-700 font-black uppercase tracking-[0.5em]">Hall of Fame Records • MORNINGSTAR NETWORK</p>
+           <p className="text-[7px] text-gray-700 font-black uppercase tracking-[0.5em]">APEX SPORTS GROUP ARCHIVES</p>
         </div>
       </div>
     </div>

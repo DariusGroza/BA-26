@@ -91,7 +91,6 @@ export interface Player {
   fatigue: number;
   contractYears: number;
   agentCommission: number;
-  agentRetainer: number; // NEW: Flat weekly fee paid to the agent
   transferCommission: number;
   timesTransferred: number;
   
@@ -213,6 +212,7 @@ export interface Match {
   details?: {
     playerOfTheGame?: {
       name: string;
+      face: string;
       pts: number;
       reb: number;
       ast: number;
@@ -221,6 +221,7 @@ export interface Match {
     quarterScores: number[][];
     topPerformers: {
       name: string;
+      face: string;
       pts: number;
       reb: number;
       ast: number;
@@ -343,6 +344,7 @@ export interface GameState {
   capSpikeMultiplier: number;
   loans: Loan[];
   inflationRate: number;
+  unlockedAchievements: string[];
 }
 
 export interface TransferOffer {
@@ -375,3 +377,11 @@ export interface GameNotification {
 }
 
 export type ViewType = 'DASHBOARD' | 'PLAYERS' | 'LEAGUE' | 'AGENCY' | 'MARKET' | 'DRAFT' | 'TRAINING' | 'LIFESTYLE' | 'SCHEDULE' | 'ACADEMY' | 'STORE' | 'FINANCE';
+
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  check: (state: GameState, players: Player[], teams: Team[]) => boolean;
+}

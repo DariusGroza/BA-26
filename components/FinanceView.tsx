@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Team, Sponsorship, Player, LifestyleItem, Loan } from '../types';
 import { formatCurrency } from '../utils';
@@ -134,8 +133,13 @@ const FinanceView: React.FC<FinanceViewProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {teams.filter(t => !t.isUniversity).sort((a,b) => b.valuation - a.valuation).map(t => {
             const marketStatus = t.marketTrend || 'STABLE';
+            const isManagingThis = managedTeamId === t.id;
+            const hasGovernorEquity = t.userShares >= 51;
+            const canTakeover = hasGovernorEquity && !isManagingThis;
+            const isFullOwner = t.userShares >= 100;
+            
             return (
-              <div key={t.id} className="bg-[#111114] border border-white/5 rounded-2xl p-4 flex flex-col group relative overflow-hidden transition-all hover:border-orange-500/40 hover:shadow-2xl hover:shadow-orange-900/10">
+              <div key={t.id} className={`bg-[#111114] border rounded-2xl p-4 flex flex-col group relative overflow-hidden transition-all hover:border-orange-500/40 hover:shadow-2xl hover:shadow-orange-900/10 ${hasGovernorEquity ? 'border-orange-500/50 ring-1 ring-orange-500/10 bg-orange-600/5' : 'border-white/5'}`}>
                 <div className="absolute top-0 right-0 p-4 opacity-[0.03] text-7xl font-sporty pointer-events-none uppercase">{t.id}</div>
                 
                 <div className="flex justify-between items-start mb-4 relative z-10">
@@ -149,10 +153,9 @@ const FinanceView: React.FC<FinanceViewProps> = ({
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className={`text-[7px] font-black px-2 py-0.5 rounded-md inline-block flex items-center gap-1 ${marketStatus === 'BULLISH' ? 'bg-green-500/20 text-green-400 animate-pulse' : marketStatus === 'BEARISH' ? 'bg-red-500/20 text-red-400 animate-bounce' : 'bg-blue-500/20 text-blue-400'}`}>
+                    <div className={`text-[7px] font-black px-2 py-0.5 rounded-md inline-block flex items-center gap-1 ${marketStatus === 'BULLISH' ? 'bg-green-500/20 text-green-400 animate-pulse' : marketStatus === 'BEARISH' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400'}`}>
                       {marketStatus === 'BULLISH' ? '↗' : marketStatus === 'BEARISH' ? '↘' : '→'} {marketStatus}
                     </div>
-                    <p className="text-[6px] text-gray-600 font-black mt-1 uppercase">Mkt. Trend</p>
                   </div>
                 </div>
 
@@ -167,40 +170,63 @@ const FinanceView: React.FC<FinanceViewProps> = ({
                    </div>
                 </div>
 
-                {/* Progress Bar of Ownership */}
                 <div className="mb-4 space-y-1">
                   <div className="flex justify-between text-[7px] font-black uppercase text-gray-500">
-                    <span>Your Equity</span>
-                    <span className={t.userShares >= 51 ? 'text-orange-500 font-black animate-pulse text-xs' : 'text-blue-400'}>{t.userShares}%</span>
+                    <span className={hasGovernorEquity ? 'text-orange-500' : ''}>
+                      {isFullOwner ? 'SOLE OWNER' : hasGovernorEquity ? 'GOVERNOR EQUITY' : 'Your Equity'}
+                    </span>
+                    <span className={hasGovernorEquity ? 'text-orange-500 font-black animate-pulse text-xs' : 'text-blue-400'}>{t.userShares}%</span>
                   </div>
                   <div className="h-1 bg-white/5 rounded-full overflow-hidden">
-                    <div className={`h-full transition-all duration-700 ${t.userShares >= 51 ? 'bg-orange-600 shadow-[0_0_12px_rgba(234,88,12,0.8)]' : 'bg-blue-600'}`} style={{ width: `${t.userShares}%` }}></div>
+                    <div className={`h-full transition-all duration-700 ${hasGovernorEquity ? 'bg-orange-600 shadow-[0_0_12px_rgba(234,88,12,0.8)]' : 'bg-blue-600'}`} style={{ width: `${t.userShares}%` }}></div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-1.5 mt-auto relative z-10">
-                  {[1, 5, 10].map(amt => {
-                    const price = t.sharePrice * amt;
-                    const canAfford = cash >= price;
-                    const isFull = t.userShares + amt > 100;
-                    return (
-                      <button
-                        key={amt}
-                        onClick={() => onBuyShares(t.id, amt)}
-                        disabled={!canAfford || isFull}
-                        className={`flex flex-col items-center justify-center py-2 rounded-xl transition-all border ${
-                          isFull 
-                          ? 'bg-gray-800 border-gray-700 opacity-20 cursor-not-allowed'
-                          : canAfford 
-                            ? 'bg-white text-black hover:bg-orange-600 hover:text-white border-transparent shadow-lg active:scale-95' 
-                            : 'bg-white/5 text-gray-700 border-white/5 cursor-not-allowed'
-                        }`}
+                <div className="flex flex-col gap-2 relative z-10">
+                  {!isFullOwner && (
+                    <div className="grid grid-cols-3 gap-1.5 mt-auto">
+                      {[1, 5, 10].map(amt => {
+                        const price = t.sharePrice * amt;
+                        const canAfford = cash >= price;
+                        const isFull = t.userShares + amt > 100;
+                        return (
+                          <button
+                            key={amt}
+                            onClick={() => onBuyShares(t.id, amt)}
+                            disabled={!canAfford || isFull}
+                            className={`flex flex-col items-center justify-center py-2 rounded-xl transition-all border ${
+                              isFull 
+                              ? 'bg-gray-800 border-gray-700 opacity-20 cursor-not-allowed'
+                              : canAfford 
+                                ? 'bg-white text-black hover:bg-orange-600 hover:text-white border-transparent shadow-lg active:scale-95' 
+                                : 'bg-white/5 text-gray-700 border-white/5 cursor-not-allowed'
+                            }`}
+                          >
+                            <span className="text-[9px] font-black uppercase">{amt}%</span>
+                            <span className="text-[6px] font-bold opacity-60">Buy</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {canTakeover && (
+                    <div className="space-y-1 mt-1">
+                      <button 
+                        onClick={() => onBecomeOwner(t.id)}
+                        className="w-full py-3 bg-orange-600 text-white font-black rounded-xl text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-orange-900/40 animate-pulse hover:bg-white hover:text-orange-600 transition-all border border-transparent"
                       >
-                        <span className="text-[9px] font-black uppercase">{amt}%</span>
-                        <span className="text-[6px] font-bold opacity-60">Buy</span>
+                        TAKE OVER
                       </button>
-                    );
-                  })}
+                      {managedTeamId !== null && (
+                        <p className="text-[6px] text-red-500 font-black uppercase text-center animate-bounce">Resign penalty (-15 REP, -20 INF) will apply</p>
+                      )}
+                    </div>
+                  )}
+                  
+                  {isManagingThis && (
+                    <span className="w-full text-center py-2 bg-green-500/10 text-green-500 border border-green-500/20 rounded-xl text-[7px] font-black uppercase tracking-widest mt-1">Control Active</span>
+                  )}
                 </div>
               </div>
             );
@@ -214,7 +240,7 @@ const FinanceView: React.FC<FinanceViewProps> = ({
            <div className="bg-[#111114] border border-white/5 p-6 rounded-3xl space-y-4 shadow-xl">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-xs font-black text-gray-500 uppercase tracking-widest">Equity Portfolio</h3>
-                <span className="text-[8px] font-bold text-orange-500 bg-orange-600/10 px-2 py-1 rounded">Total Stakes: {userEquity.length}</span>
+                <span className="text-[8px] font-bold text-orange-500 bg-orange-600/10 px-2 py-1 rounded">Stakes: {userEquity.length}</span>
               </div>
               <div className="space-y-2 max-h-[500px] overflow-y-auto no-scrollbar">
                  {userEquity.map(t => {
@@ -228,20 +254,28 @@ const FinanceView: React.FC<FinanceViewProps> = ({
                           <div>
                               <p className="text-[10px] font-bold text-white uppercase">{t.name}</p>
                               <p className={`text-[7px] font-black uppercase ${t.userShares >= 51 ? 'text-orange-500 animate-pulse' : 'text-blue-500'}`}>
-                                {t.userShares}% {t.userShares >= 51 ? 'MAJORITY OWNER' : 'SHAREHOLDER'}
+                                {t.userShares}% {t.userShares >= 100 ? 'SOLE OWNER' : t.userShares >= 51 ? 'MAJORITY OWNER' : 'SHAREHOLDER'}
                               </p>
                               {canTakeover && (
-                                <button 
-                                  onClick={() => onBecomeOwner(t.id)}
-                                  className="mt-2 bg-orange-600 hover:bg-white hover:text-orange-600 text-white text-[10px] font-black px-4 py-2 rounded-lg uppercase transition-all shadow-xl shadow-orange-900/40 animate-bounce"
-                                >
-                                  Assume Control
-                                </button>
+                                <div className="mt-2 space-y-1">
+                                  <button 
+                                    onClick={() => onBecomeOwner(t.id)}
+                                    className="bg-orange-600 hover:bg-white hover:text-orange-600 text-white text-[10px] font-black px-4 py-2 rounded-lg uppercase transition-all shadow-xl shadow-orange-900/40"
+                                  >
+                                    TAKE OVER
+                                  </button>
+                                  {managedTeamId !== null && (
+                                    <p className="text-[5px] text-red-500 font-black uppercase">Switch penalty: -15 REP / -20 INF</p>
+                                  )}
+                                </div>
                               )}
                               {isManagingThis && (
                                 <div className="flex flex-col gap-1 mt-1">
-                                  <span className="text-[7px] font-black text-green-500 uppercase bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20">Active Board Member</span>
-                                  <button onClick={onResign} className="text-[7px] font-black text-red-500 uppercase hover:text-white transition-colors text-left w-fit">Step Down</button>
+                                  <span className="text-[7px] font-black text-green-500 uppercase bg-green-500/10 px-2 py-0.5 rounded border border-green-500/20">Executive Governor</span>
+                                  <button onClick={onResign} className="text-[7px] font-black text-red-500 uppercase hover:text-white transition-colors text-left w-fit flex items-center gap-1 group/btn">
+                                     Resign Control
+                                     <span className="opacity-0 group-hover/btn:opacity-100 text-[6px] transition-opacity">(-15 REP, -20 INF)</span>
+                                  </button>
                                 </div>
                               )}
                           </div>

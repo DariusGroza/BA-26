@@ -1,5 +1,5 @@
 
-import { Position, Team, LifestyleItem, Conference, OfficeUpgrade } from './types';
+import { Position, Team, LifestyleItem, Conference, OfficeUpgrade, Achievement } from './types';
 
 export const INITIAL_CASH = 50000;
 export const INITIAL_REPUTATION = 10;
@@ -12,7 +12,7 @@ export const SCOUTING_COSTS = {
   ELITE: 100000
 };
 
-export const SCOUT_HIRE_COSTS = [50000, 250000, 1000000]; // Increased hire costs
+export const SCOUT_HIRE_COSTS = [15000, 250000, 1000000]; // Tier 1 reduced from 50k to 15k
 export const SCOUT_WEEKLY_SALARY = [2500, 7500, 25000]; // Significant expert salaries
 
 export const OFFICE_UPGRADES: OfficeUpgrade[] = [
@@ -89,7 +89,7 @@ export const LIFESTYLE_ITEMS: LifestyleItem[] = [
   // VEHICLES
   { id: 'v_0', name: 'Custom E-Bike', price: 15000, reputationGain: 0, influenceGain: 0, category: 'Vehicle', image: '🚲', owned: false },
   { id: 'v_1', name: 'German Sports Car', price: 450000, reputationGain: 5, influenceGain: 1, category: 'Vehicle', image: '🚗', owned: false },
-  { id: 'v_2', name: 'G650 Gulfstream', price: 1250000000, reputationGain: 80, influenceGain: 50, category: 'Vehicle', image: '🛩️', owned: false },
+  { id: 'v_2', name: 'G650 Gulfstream', price: 1250000000, reputationGain: 80, influenceGain: 50, category: 'Vehicle', image: '𛛩️', owned: false },
   { id: 'v_3', name: 'Eclipse Mega Yacht', price: 25000000000, reputationGain: 140, influenceGain: 250, category: 'Vehicle', image: '🚢', owned: false },
 
   // LUXURY
@@ -106,3 +106,55 @@ export const LIFESTYLE_ITEMS: LifestyleItem[] = [
 
 export const FIRST_NAMES = ['Bron', 'Steph', 'Kev', 'Luka', 'Gian', 'Ja', 'Ky', 'Shai', 'Chet', 'Zion', 'Nik', 'Joel', 'Dame', 'Trae', 'Bam'];
 export const LAST_NAMES = ['Jams', 'Kurry', 'Tarant', 'Dancic', 'Anteto', 'Embed', 'Lillard', 'Irv', 'Gilyous', 'Holmgrn', 'Willims', 'Morant'];
+
+export const ACHIEVEMENTS: Achievement[] = [
+  {
+    id: 'first_client',
+    title: 'Representation Protocol',
+    description: 'Signed your first professional client.',
+    icon: '🤝',
+    check: (state, players) => players.some(p => p.isClient)
+  },
+  {
+    id: 'millionaire',
+    title: 'The Million Club',
+    description: 'Surpassed $1,000,000 in agency liquidity.',
+    icon: '💰',
+    check: (state) => state.cash >= 1000000
+  },
+  {
+    id: 'governor',
+    title: 'Governor Status',
+    description: 'Assumed majority control (51%) of a franchise.',
+    icon: '🏢',
+    check: (state) => !!state.managedTeamId
+  },
+  {
+    id: 'rep_master',
+    title: 'Industry Icon',
+    description: 'Reached a reputation of 100.',
+    icon: '👑',
+    check: (state) => state.reputation >= 100
+  },
+  {
+    id: 'full_office',
+    title: 'Global Empire',
+    description: 'Reached maximum office level.',
+    icon: '🏙️',
+    check: (state) => state.officeLevel >= 5
+  },
+  {
+    id: 'billionaire',
+    title: 'Billionaire Bureau',
+    description: 'Amassed $1,000,000,000 in agency cash.',
+    icon: '💎',
+    check: (state) => state.cash >= 1000000000
+  },
+  {
+    id: 'pro_stable',
+    title: 'Talent Titan',
+    description: 'Represented 5 or more professional clients simultaneously.',
+    icon: '🏀',
+    check: (state, players) => players.filter(p => p.isClient && !p.isYouth).length >= 5
+  }
+];

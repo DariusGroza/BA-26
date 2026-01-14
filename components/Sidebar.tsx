@@ -6,15 +6,19 @@ interface SidebarProps {
   currentView: ViewType;
   setView: (view: ViewType) => void;
   isPremium: boolean;
+  onExit: () => void;
+  onSave: () => void;
+  isSaving: boolean;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isPremium }) => {
-  const menuItems: { id: ViewType; label: string; icon: string }[] = [
+const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isPremium, onExit, onSave, isSaving }) => {
+  const menuItems: { id: ViewType | 'EXIT'; label: string; icon: string }[] = [
     { id: 'DASHBOARD', label: 'Home', icon: '📊' },
     { id: 'PLAYERS', label: 'Pro', icon: '🏀' },
     { id: 'AGENCY', label: 'Agency', icon: '💼' },
     { id: 'ACADEMY', label: 'Academy', icon: '🎓' },
     { id: 'FINANCE', label: 'Finance', icon: '💰' },
+    { id: 'EXIT', label: 'Exit', icon: '🏠' },
   ];
 
   const desktopItems: { id: ViewType; label: string; icon: string }[] = [
@@ -64,8 +68,22 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isPremium }) =>
           ))}
         </nav>
 
-        <div className="p-8 opacity-20 pointer-events-none">
-           <p className="text-[8px] text-gray-600 font-black uppercase tracking-[0.4em]">Morningstar Management</p>
+        <div className="p-4 border-t border-white/5 mt-auto space-y-2">
+           <button 
+             onClick={onSave}
+             disabled={isSaving}
+             className={`w-full flex items-center justify-center space-x-3 py-3 rounded-xl transition-all border border-white/5 group ${isSaving ? 'bg-green-600/20 text-green-400 border-green-500/20' : 'bg-white/5 hover:bg-green-600/10 hover:text-green-500'}`}
+           >
+              <span className={`text-lg transition-all ${isSaving ? 'animate-bounce' : 'opacity-60 group-hover:opacity-100'}`}>{isSaving ? '💾' : '💾'}</span>
+              <span className="text-[9px] font-black uppercase tracking-widest">{isSaving ? 'Syncing...' : 'Save Game'}</span>
+           </button>
+           <button 
+             onClick={onExit}
+             className="w-full flex items-center justify-center space-x-3 py-3 rounded-xl bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white transition-all border border-red-500/20 group"
+           >
+              <span className="text-lg opacity-60 group-hover:opacity-100">🚪</span>
+              <span className="text-[9px] font-black uppercase tracking-widest">Quit Game</span>
+           </button>
         </div>
       </div>
 
@@ -74,9 +92,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isPremium }) =>
           {menuItems.map((item) => (
             <button
               key={item.id}
-              onClick={() => setView(item.id)}
+              onClick={() => item.id === 'EXIT' ? onExit() : setView(item.id)}
               className={`flex flex-col items-center justify-center flex-1 h-full transition-all duration-300 ${
-                currentView === item.id ? 'text-orange-500 scale-110' : 'text-gray-500'
+                currentView === item.id ? 'text-orange-500 scale-110' : item.id === 'EXIT' ? 'text-red-500/60' : 'text-gray-500'
               }`}
             >
               <span className="text-2xl mb-1">{item.icon}</span>
