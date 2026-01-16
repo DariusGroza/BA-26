@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ViewType } from '../types';
 
@@ -42,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isPremium, onEx
             <span className="text-orange-500">BASKETBALL</span> <span className="text-white block">AGENT 2026</span>
           </h1>
           <div className="flex items-center space-x-2 mt-3">
-             <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.3em]">v1.0 Release</p>
+             <p className="text-[10px] text-gray-500 font-black uppercase tracking-[0.2em]">Morningstar Simulation System</p>
              {isPremium && (
                <span className="bg-orange-600 text-white text-[7px] font-black px-1.5 py-0.5 rounded uppercase shadow-lg shadow-orange-900/50">VIP</span>
              )}

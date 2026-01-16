@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Player } from '../types';
 import { formatCurrency, getSigningFee } from '../utils';
@@ -12,47 +11,49 @@ interface NegotiationModalProps {
 }
 
 const NegotiationModal: React.FC<NegotiationModalProps> = ({ player, onNegotiate, onClose, managerName, agencyName }) => {
-  const [commission, setCommission] = useState(player.agentCommission || 0.04);
+  const [commission, setCommission] = useState(player.agentCommission || 0.03);
   const [transferComm, setTransferComm] = useState(player.transferCommission || 0.05);
   const [hasSigned, setHasSigned] = useState(false);
 
   const signingFee = useMemo(() => getSigningFee(player), [player]);
 
   const { totalScore, status, message, sentimentColor, sentimentWidth } = useMemo(() => {
-    // Base sentiment starts high
-    let score = 90;
+    // HARDER DIFFICULTY ADJUSTMENT
+    // Base sentiment lowered to 60. This implies you must offer good terms to pass.
+    let score = 60; 
     
-    // Commission penalty (Over 8% starts bothering them)
-    if (commission > 0.08) score -= (commission - 0.08) * 600;
+    // Commission penalty (BRUTAL): 
+    // Standard is 3%. Asking for 4% (0.04) penalizes score by 15 points (0.01 * 1500).
+    if (commission > 0.03) score -= (commission - 0.03) * 1500; 
     
-    // Transfer fee penalty (greedy future outlook)
-    if (transferComm > 0.08) score -= (transferComm - 0.08) * 300;
+    // Transfer fee penalty (Harder)
+    if (transferComm > 0.05) score -= (transferComm - 0.05) * 800;
     
-    // Relationship leverage
-    const leverage = (player.loyalty / 100) * 30;
+    // Relationship leverage (Reduced impact)
+    const leverage = (player.loyalty / 100) * 15;
     score += leverage;
 
     score = Math.max(0, Math.min(100, score));
     
     let currentStatus = '😡';
-    let currentMsg = 'Predatory terms.';
+    let currentMsg = 'Insulting offer.';
     let color = 'bg-red-500';
 
-    if (score > 85) {
+    if (score > 90) {
       currentStatus = '🤩';
-      currentMsg = 'Perfect agreement.';
+      currentMsg = 'Dream partnership.';
       color = 'bg-emerald-500';
-    } else if (score > 65) {
+    } else if (score > 75) {
       currentStatus = '🤝';
-      currentMsg = 'Fair deal.';
+      currentMsg = 'Acceptable terms.';
       color = 'bg-green-500';
-    } else if (score > 45) {
+    } else if (score > 50) {
       currentStatus = '🤨';
-      currentMsg = 'Hesitant.';
+      currentMsg = 'Needs improvement.';
       color = 'bg-yellow-500';
-    } else if (score > 25) {
+    } else if (score > 30) {
       currentStatus = '😠';
-      currentMsg = 'Greedy offer.';
+      currentMsg = 'Greedy.';
       color = 'bg-orange-500';
     }
 
@@ -66,8 +67,9 @@ const NegotiationModal: React.FC<NegotiationModalProps> = ({ player, onNegotiate
   }, [commission, transferComm, player]);
 
   const handleSign = () => {
-    if (totalScore < 35) {
-      alert(`${player.name} refuses to sign: "${message}"`);
+    // Threshold is 50. With base 60, slight greed fails immediately.
+    if (totalScore < 50) {
+      alert(`${player.name} rejects the contract: "${message}" \n\n(Tip: 3% Agent Commission is standard. Anything higher requires high loyalty.)`);
       return;
     }
     setHasSigned(true);
@@ -142,10 +144,11 @@ const NegotiationModal: React.FC<NegotiationModalProps> = ({ player, onNegotiate
                    <span className="text-sm font-bold text-zinc-950">{(commission * 100).toFixed(0)}%</span>
                 </div>
                 <input 
-                  type="range" min="0.01" max="0.12" step="0.01" 
+                  type="range" min="0.01" max="0.10" step="0.01" 
                   value={commission} onChange={(e) => setCommission(parseFloat(e.target.value))}
                   className="w-full h-1.5 bg-zinc-200 rounded-full accent-zinc-900 appearance-none cursor-pointer"
                 />
+                <p className="text-[8px] text-zinc-400">Standard: 3%</p>
               </div>
 
               <div className="space-y-2">
@@ -154,10 +157,11 @@ const NegotiationModal: React.FC<NegotiationModalProps> = ({ player, onNegotiate
                    <span className="text-sm font-bold text-zinc-950">{(transferComm * 100).toFixed(0)}%</span>
                 </div>
                 <input 
-                  type="range" min="0.01" max="0.15" step="0.01" 
+                  type="range" min="0.01" max="0.10" step="0.01" 
                   value={transferComm} onChange={(e) => setTransferComm(parseFloat(e.target.value))}
                   className="w-full h-1.5 bg-zinc-200 rounded-full accent-zinc-900 appearance-none cursor-pointer"
                 />
+                <p className="text-[8px] text-zinc-400">Standard: 5%</p>
               </div>
             </div>
           </div>
@@ -178,10 +182,10 @@ const NegotiationModal: React.FC<NegotiationModalProps> = ({ player, onNegotiate
                 </button>
                 <button 
                   onClick={handleSign}
-                  className={`flex-[2] py-4 font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center space-x-2 rounded ${totalScore >= 35 ? 'bg-zinc-900 text-white hover:bg-black shadow-zinc-900/20' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'}`}
+                  className={`flex-[2] py-4 font-black text-[10px] uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center space-x-2 rounded ${totalScore >= 50 ? 'bg-zinc-900 text-white hover:bg-black shadow-zinc-900/20' : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'}`}
                 >
                   <span>
-                    {totalScore < 35 ? 'Rejected Terms' : (signingFee === 0 ? 'Sign Contract' : 'Sign & Pay Bonus')}
+                    {totalScore < 50 ? 'Terms Rejected' : (signingFee === 0 ? 'Sign Contract' : 'Sign & Pay Bonus')}
                   </span>
                 </button>
              </div>

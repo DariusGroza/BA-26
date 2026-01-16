@@ -33,18 +33,22 @@ import DecisionModal from './components/DecisionModal';
 import BreakingNewsOverlay from './components/BreakingNewsOverlay';
 import FinanceBreakdownModal from './components/FinanceBreakdownModal';
 import AchievementToast from './components/AchievementToast';
+import ExitConfirmModal from './components/ExitConfirmModal';
+import SaveSuccessModal from './components/SaveSuccessModal';
 
 const SAVE_KEY_PREFIX = 'basketball_agent_2026_save_slot_';
 
 const App: React.FC = () => {
   const [isPremiumGlobal, setIsPremiumGlobal] = useState(() => localStorage.getItem('ba2026_premium') === 'true');
   const [showFinanceBreakdown, setShowFinanceBreakdown] = useState(false);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [isMuted, setIsMuted] = useState(() => localStorage.getItem('ba2026_muted') === 'true');
   const [volume, setVolume] = useState(() => parseFloat(localStorage.getItem('ba2026_volume') || '0.5'));
   
   const [gameState, setGameState] = useState<GameState>({
     week: 1, year: 2026, cash: INITIAL_CASH, reputation: INITIAL_REPUTATION, scoutingPoints: 20, trainingPoints: 50, scoutingBoostWeeks: 0, influencePoints: 10,
-    inventory: [], notifications: [], breakingNews: null, draftProspects: [], universityPlayers: [], scouts: [], scoutingProgress: 0, scoutReport: [], draftOrder: [], activeOffers: [],
+    inventory: [], notifications: [], breakingNews: null, draftProspects: [], universityPlayers: [], scouts: [], consumedScoutReports: [], scoutingProgress: 0, scoutReport: [], draftOrder: [], activeOffers: [],
     draftPhase: DraftPhase.PRE_DRAFT, leaguePhase: LeaguePhase.REGULAR_SEASON, playoffBracket: [], currentDraftPick: 1, draftHistory: [], managerName: '', agencyName: '',
     isPremium: isPremiumGlobal, saveSlot: 1, lastAdWeek: 0, managedTeamId: null, isScoutingBoostPermanent: false, isBankrupt: false, awardHistory: [], managers: [],
     transfersThisSeason: 0, officeLevel: 1, officeItems: [], maxClients: 5, activeDecision: null, globalLockoutWeeks: 0, globalPandemicWeeks: 0, capSpikeMultiplier: 1.0,
@@ -116,15 +120,17 @@ const App: React.FC = () => {
     setSaveSlotsAvailable(slots);
   }, []);
 
-  const handleSaveGame = useCallback((silent: boolean = false) => {
-    const saveData = { gameState, players, teams, matches, timestamp: Date.now() };
-    localStorage.setItem(`${SAVE_KEY_PREFIX}${gameState.saveSlot}`, JSON.stringify(saveData));
-    setSaveSlotsAvailable(prev => ({ ...prev, [gameState.saveSlot]: true }));
+  const handleSaveGame = useCallback((slot: number = gameState.saveSlot, silent: boolean = false) => {
+    const actualSlot = (gameState.isPremium) ? slot : 1;
+    const saveData = { gameState: { ...gameState, saveSlot: actualSlot }, players, teams, matches, timestamp: Date.now() };
+    localStorage.setItem(`${SAVE_KEY_PREFIX}${actualSlot}`, JSON.stringify(saveData));
+    setSaveSlotsAvailable(prev => ({ ...prev, [actualSlot]: true }));
     if (!silent) {
       sounds.success();
+      setShowSaveSuccess(true);
       setGameState(prev => ({
         ...prev,
-        notifications: [{ id: generateId(), title: 'System Synced', message: `Agency data secured to Slot ${gameState.saveSlot}.`, week: prev.week, type: 'success' }, ...prev.notifications]
+        notifications: [{ id: generateId(), title: 'System Synced', message: `Agency data secured to Slot ${actualSlot}.`, week: prev.week, type: 'success' }, ...prev.notifications]
       }));
     }
   }, [gameState, players, teams, matches]);
@@ -157,10 +163,31 @@ const App: React.FC = () => {
     setVolume(v);
   };
 
-  const handleExitToMain = () => {
-    sounds.click();
+  const performFinalExit = () => {
+    setPlayers([]);
+    setTeams([]);
+    setMatches([]);
+    setGameState({
+      week: 1, year: 2026, cash: INITIAL_CASH, reputation: INITIAL_REPUTATION, scoutingPoints: 20, trainingPoints: 50, scoutingBoostWeeks: 0, influencePoints: 10,
+      inventory: [], notifications: [], breakingNews: null, draftProspects: [], universityPlayers: [], scouts: [], consumedScoutReports: [], scoutingProgress: 0, scoutReport: [], draftOrder: [], activeOffers: [],
+      draftPhase: DraftPhase.PRE_DRAFT, leaguePhase: LeaguePhase.REGULAR_SEASON, playoffBracket: [], currentDraftPick: 1, draftHistory: [], managerName: '', agencyName: '',
+      isPremium: isPremiumGlobal, saveSlot: 1, lastAdWeek: 0, managedTeamId: null, isScoutingBoostPermanent: false, isBankrupt: false, awardHistory: [], managers: [],
+      transfersThisSeason: 0, officeLevel: 1, officeItems: [], maxClients: 5, activeDecision: null, globalLockoutWeeks: 0, globalPandemicWeeks: 0, capSpikeMultiplier: 1.0,
+      loans: [], inflationRate: 0, unlockedAchievements: []
+    });
     setGameStarted(false);
     setView('DASHBOARD');
+    setShowExitConfirm(false);
+  };
+
+  const handleExitToMain = () => {
+    sounds.click();
+    setShowExitConfirm(true);
+  };
+
+  const handleSaveAndExit = (slot: number) => {
+    handleSaveGame(slot, true);
+    performFinalExit();
   };
 
   const handleHireScout = (level: 1 | 2 | 3) => {
@@ -170,8 +197,15 @@ const App: React.FC = () => {
     sounds.cash();
     const fName = FIRST_NAMES[Math.floor(Math.random() * FIRST_NAMES.length)];
     const lName = LAST_NAMES[Math.floor(Math.random() * LAST_NAMES.length)];
-    const newScout: Scout = { id: generateId(), name: `${fName} ${lName}`, age: 30 + Math.floor(Math.random() * 30), level, efficiency: 0.5 + (level * 0.15) + (Math.random() * 0.1), salary: SCOUT_WEEKLY_SALARY[level - 1], hiredWeek: gameState.week };
+    const newScout: Scout = { id: generateId(), name: `${fName} ${lName}`, age: 30 + Math.floor(Math.random() * 30), level, efficiency: 0.5 + (level * 0.15) + (Math.random() * 0.1), salary: SCOUT_WEEKLY_SALARY[level - 1], hiredWeek: gameState.week, hiredYear: gameState.year };
     setGameState(prev => ({ ...prev, cash: prev.cash - cost, scouts: [...prev.scouts, newScout], notifications: [{ id: generateId(), title: 'New Scout Hired', message: `${newScout.name} joined the agency.`, week: prev.week, type: 'success' }, ...prev.notifications] }));
+  };
+
+  const handleConsumeScoutReport = (scoutId: string, week: number) => {
+    setGameState(prev => ({
+      ...prev,
+      consumedScoutReports: [...prev.consumedScoutReports, `${scoutId}_${prev.year}_${week}`]
+    }));
   };
 
   const handleScoutAcademy = (playerId: string, cost: number) => {
@@ -191,7 +225,7 @@ const App: React.FC = () => {
     setGameState(prev => {
       const updates: Partial<GameState> = {};
       if (type === 'CASH') updates.cash = prev.cash + 50000;
-      if (type === 'REPUTATION') updates.reputation = prev.reputation + 5;
+      if (type === 'REPUTATION') updates.reputation = prev.reputation + 1; // NERFED from 5 to 1
       return { ...prev, ...updates };
     });
   };
@@ -236,6 +270,7 @@ const App: React.FC = () => {
     const repCost = item.cost / 1000;
     if (gameState.reputation < repCost) { sounds.error(); return; }
     sounds.success();
+    // Buying with Reputation consumes it - this is harder now as items give less back
     setGameState(prev => ({ ...prev, reputation: prev.reputation - repCost, officeItems: [...prev.officeItems, item.id], maxClients: prev.maxClients + item.capacityGain }));
   };
 
@@ -335,18 +370,69 @@ const App: React.FC = () => {
     if (newState.cash < -200000) { sounds.buzzer(); setGameState(prev => ({ ...prev, isBankrupt: true })); }
   };
 
+  const handleDraftPick = (prospectId: string) => {
+    setGameState(prev => {
+      const pick = prev.currentDraftPick;
+      const teamId = prev.draftOrder[pick - 1];
+      const prospect = prev.draftProspects.find(p => p.id === prospectId);
+      if (!prospect) return prev;
+
+      const newHistory = [...prev.draftHistory, { pick, teamId, playerId: prospectId, round: pick <= 30 ? 1 : 2 }];
+      const newProspects = prev.draftProspects.filter(p => p.id !== prospectId);
+      
+      return { 
+        ...prev, 
+        currentDraftPick: pick + 1, 
+        draftHistory: newHistory, 
+        draftProspects: newProspects,
+        draftPhase: pick >= 60 ? DraftPhase.POST_DRAFT : prev.draftPhase
+      };
+    });
+
+    setPlayers(prev => prev.map(p => p.id === prospectId ? { ...p, isRookie: true, isYouth: false } : p));
+  };
+
+  const handleDraftSign = (playerId: string) => {
+    const clientCount = players.filter(p => p.isClient).length;
+    if (clientCount >= gameState.maxClients) {
+      sounds.error();
+      alert(`Office Capacity Reached (${gameState.maxClients}). Upgrade HQ to sign more players.`);
+      return;
+    }
+    sounds.success();
+    setPlayers(prev => prev.map(p => p.id === playerId ? { ...p, isClient: true, loyalty: 100 } : p));
+    setGameState(prev => ({ ...prev, reputation: prev.reputation + 1 })); // NERFED from 3 to 1
+  };
+
+  const handleFinishDraft = () => {
+    sounds.click();
+    handleNextWeek();
+    setView('DASHBOARD');
+  };
+
   const handleStartNew = (managerName: string, agencyName: string, slot: number) => {
     sounds.playBGM();
     sounds.success();
+    const assignedSlot = (isPremiumGlobal) ? slot : 1;
     const proTeams: Team[] = TEAMS_DATA.map(t => ({ ...t as Team, wins: 0, losses: 0, budget: 150000000, roster: [], chemistry: 70, championships: 0, valuation: t.valuation || 3000000000, sharePrice: (t.valuation || 3000000000) / 100, userShares: 0, weeklyRevenue: 100000, systemType: 'Pace & Space', stadiumLevel: 1, medicalLevel: 1, scoutingLevel: 1, academyLevel: 1, marketTrend: 'STABLE' }));
     const uniTeams: Team[] = UNIVERSITY_TEAMS_DATA.map(t => ({ ...t as Team, wins: 0, losses: 0, budget: 0, roster: [], chemistry: 70, championships: 0, valuation: 0, sharePrice: 0, userShares: 0, weeklyRevenue: 0, systemType: 'Grit & Grind', stadiumLevel: 1, medicalLevel: 1, scoutingLevel: 1, academyLevel: 1, marketTrend: 'STABLE' }));
     const allPlayers: Player[] = [];
     proTeams.forEach(team => { for (let i = 0; i < 12; i++) { const p = generatePlayer(team.id); allPlayers.push(p); team.roster.push(p.id); } });
     uniTeams.forEach(team => { for (let i = 0; i < 12; i++) { const p = generatePlayer(team.id, false, true); allPlayers.push(p); team.roster.push(p.id); } });
     for (let i = 0; i < 60; i++) { allPlayers.push(generatePlayer(null, false, true)); }
+    const prospects = Array.from({ length: 120 }, () => generatePlayer(null, true, false));
+    const draftOrder = [...proTeams, ...proTeams].map(t => t.id).sort(() => Math.random() - 0.5);
     setTeams([...proTeams, ...uniTeams]); 
-    setPlayers(allPlayers);
-    setGameState({ ...gameState, managerName, agencyName, saveSlot: slot, managers: Array.from({ length: 40 }, () => generateManager(null)), unlockedAchievements: [] });
+    setPlayers([...allPlayers, ...prospects]);
+    setGameState({ 
+      week: 1, year: 2026, cash: INITIAL_CASH, reputation: INITIAL_REPUTATION, scoutingPoints: 20, trainingPoints: 50, scoutingBoostWeeks: 0, influencePoints: 10,
+      inventory: [], notifications: [], breakingNews: null, 
+      scouts: [], consumedScoutReports: [], scoutingProgress: 0, scoutReport: [], draftHistory: [], 
+      activeOffers: [], draftPhase: DraftPhase.PRE_DRAFT, leaguePhase: LeaguePhase.REGULAR_SEASON, playoffBracket: [], currentDraftPick: 1,
+      managerName, agencyName, saveSlot: assignedSlot, draftProspects: prospects, draftOrder, managers: Array.from({ length: 40 }, () => generateManager(null)), 
+      unlockedAchievements: [], isPremium: isPremiumGlobal, managedTeamId: null, transfersThisSeason: 0, officeLevel: 1, officeItems: [], maxClients: 5, activeDecision: null,
+      globalLockoutWeeks: 0, globalPandemicWeeks: 0, capSpikeMultiplier: 1.0, loans: [], inflationRate: 0, awardHistory: []
+    });
     setGameStarted(true);
   };
 
@@ -363,12 +449,9 @@ const App: React.FC = () => {
   const handleBecomeOwner = (teamId: string) => {
     const team = teams.find(t => t.id === teamId);
     if (!team) return;
-    
-    // PENALTY LOGIC: Switching or resigning affects Rep and Influence
     const hasOldTeam = gameState.managedTeamId !== null && gameState.managedTeamId !== teamId;
     const repHit = hasOldTeam ? 15 : 0;
     const infHit = hasOldTeam ? 20 : 0;
-
     sounds.success();
     setGameState(prev => ({ 
       ...prev, 
@@ -401,16 +484,29 @@ const App: React.FC = () => {
 
   const handleSelectView = (v: ViewType) => { sounds.click(); setView(v); }
 
+  const currentClientCount = players.filter(p => p.isClient).length;
+  const isAgencyFull = currentClientCount >= gameState.maxClients;
+
+  const handleInitiateSigning = (id: string) => {
+    if (isAgencyFull) {
+      sounds.error();
+      alert(`Agency at capacity (${gameState.maxClients}). Upgrade office to sign more clients.`);
+      return;
+    }
+    const p = players.find(p => p.id === id);
+    if (p) setNegotiatingPlayer(p);
+  };
+
   if (!gameStarted) return <LandingPage onStartNew={handleStartNew} onLoadSave={handleLoadSave} onConnectGoogle={() => {}} onPurchasePremium={() => {}} isPremium={isPremiumGlobal} saveSlots={saveSlotsAvailable} isMuted={isMuted} onToggleMute={handleToggleMute} volume={volume} onVolumeChange={handleSetVolume} unlockedAchievements={gameState.unlockedAchievements} />;
 
   return (
     <div className="flex h-screen bg-[#050507] text-gray-100 overflow-hidden relative" onClick={() => sounds.playBGM()}>
-      <Sidebar currentView={view} setView={handleSelectView} isPremium={gameState.isPremium} onExit={handleExitToMain} onSave={() => handleSaveGame(false)} isSaving={false} />
+      <Sidebar currentView={view} setView={handleSelectView} isPremium={gameState.isPremium} onExit={handleExitToMain} onSave={() => handleSaveGame(gameState.saveSlot, false)} isSaving={false} />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header gameState={gameState} onNextWeek={handleNextWeek} onViewChange={handleSelectView} onExit={handleExitToMain} onSave={() => handleSaveGame(false)} isSaving={false} onShowFinance={() => { sounds.click(); setShowFinanceBreakdown(true); }} isMuted={isMuted} onToggleMute={handleToggleMute} />
+        <Header gameState={gameState} onNextWeek={handleNextWeek} onViewChange={handleSelectView} onExit={handleExitToMain} onSave={() => handleSaveGame(gameState.saveSlot, false)} isSaving={false} onShowFinance={() => { sounds.click(); setShowFinanceBreakdown(true); }} isMuted={isMuted} onToggleMute={handleToggleMute} />
         <main className="flex-1 overflow-y-auto p-3 md:p-6 pb-24 md:pb-12 scroll-container">
           {view === 'DASHBOARD' && <Dashboard gameState={gameState} players={players} teams={teams} matches={matches} onViewChange={handleSelectView} onSelectPlayer={setSelectedPlayer} onSelectTeam={setSelectedTeam} onSelectMatch={setSelectedMatch} onShowAwardHistory={()=>{}} onUpgradeFacility={handleUpgradeFacility} onFireManager={handleFireManager} onFirePlayer={handleFirePlayer} onShowFinance={() => setShowFinanceBreakdown(true)} />}
-          {view === 'PLAYERS' && <PlayerList players={players.filter(p => !p.isYouth && !p.isRetired)} managers={gameState.managers} onSign={(id) => setNegotiatingPlayer(players.find(p => p.id === id) || null)} onHireManager={(id) => {
+          {view === 'PLAYERS' && <PlayerList players={players.filter(p => !p.isYouth && !p.isRetired && !gameState.draftProspects.some(dp => dp.id === p.id))} managers={gameState.managers} onSign={handleInitiateSigning} onHireManager={(id) => {
              const m = gameState.managers.find(x => x.id === id);
              if (m && gameState.managedTeamId) {
                setTeams(prev => prev.map(t => t.id === gameState.managedTeamId ? { ...t, managerId: id } : t));
@@ -419,25 +515,40 @@ const App: React.FC = () => {
              }
           }} reputation={gameState.reputation} onSelectPlayer={setSelectedPlayer} onSelectManager={setSelectedManager} isOwner={!!gameState.managedTeamId} />}
           {view === 'AGENCY' && <AgencyView players={players.filter(p => p.isClient && !p.isRetired)} offers={[]} teams={teams} onTrain={setSelectedPlayer} onSelectPlayer={setSelectedPlayer} gameState={gameState} onUpgradeOffice={handleUpgradeOffice} onBuyOfficeItem={handleBuyOfficeItem} onTransferPlayer={handleTransferPlayer} onWatchAdReward={handleWatchAdReward} />}
-          {view === 'ACADEMY' && <AcademyView gameState={gameState} teams={teams} players={players} matches={matches} hireScout={handleHireScout} academyPlayers={players.filter(p => p.isYouth && p.isClient)} talentPool={players.filter(p => p.isYouth && !p.teamId)} onSignAcademy={(id) => setNegotiatingPlayer(players.find(p => p.id === id) || null)} onScoutAcademy={handleScoutAcademy} onSelectPlayer={setSelectedPlayer} onSelectTeam={setSelectedTeam} onSelectMatch={setSelectedMatch} onWatchAdReward={handleWatchAdReward} onAssignToUniversity={(pid, tid) => setPlayers(prev => prev.map(p => p.id === pid ? {...p, teamId: tid} : p))} />}
+          {view === 'ACADEMY' && <AcademyView gameState={gameState} teams={teams} players={players} matches={matches} hireScout={handleHireScout} academyPlayers={players.filter(p => p.isYouth && p.isClient)} talentPool={players.filter(p => p.isYouth && !p.teamId)} onSignAcademy={handleInitiateSigning} onScoutAcademy={handleScoutAcademy} onSelectPlayer={setSelectedPlayer} onSelectTeam={setSelectedTeam} onSelectMatch={setSelectedMatch} onWatchAdReward={handleWatchAdReward} onAssignToUniversity={(pid, tid) => setPlayers(prev => prev.map(p => p.id === pid ? {...p, teamId: tid} : p))} onConsumeScoutReport={handleConsumeScoutReport} isAgencyFull={isAgencyFull} />}
           {view === 'FINANCE' && <FinanceView teams={teams} players={players} cash={gameState.cash} inventory={gameState.inventory} onBuyShares={handleBuyShares} onBuyLifestyle={handleBuyLifestyle} onSignSponsorship={()=>{}} onUpdateTeamFinance={()=>{}} managedTeamId={gameState.managedTeamId} onBecomeOwner={handleBecomeOwner} onResign={handleResign} onSelectPlayer={setSelectedPlayer} onTakeLoan={handleTakeLoan} onRepayLoan={handleRepayLoan} loans={gameState.loans} />}
           {view === 'LEAGUE' && <LeagueView teams={teams} matches={matches} gameState={gameState} players={players} onSelectTeam={setSelectedTeam} onSelectPlayer={setSelectedPlayer} onShowAwardHistory={()=>{}} />}
           {view === 'SCHEDULE' && <ScheduleView matches={matches} teams={teams} onSelectMatch={setSelectedMatch} />}
           {view === 'TRAINING' && <TrainingView clients={players.filter(p => p.isClient && !p.isRetired)} onTrain={handleTrainAttribute} trainingPoints={gameState.trainingPoints} />}
           {view === 'LIFESTYLE' && <LifestyleView inventory={gameState.inventory} cash={gameState.cash} onBuy={handleBuyLifestyle} />}
           {view === 'STORE' && <StoreView onPurchase={handleStorePurchase} />}
+          {view === 'MARKET' && <MarketView players={players.filter(p => !p.isYouth && !p.isClient && !p.teamId && !p.isRetired)} onSign={handleInitiateSigning} onSelectPlayer={setSelectedPlayer} reputation={gameState.reputation} isAgencyFull={isAgencyFull} />}
+          {view === 'DRAFT' && <DraftView gameState={gameState} teams={teams} prospects={gameState.draftProspects} setGameState={setGameState} onPick={handleDraftPick} onSign={handleDraftSign} onSelectPlayer={setSelectedPlayer} onSelectTeam={setSelectedTeam} onFinishDraft={handleFinishDraft} isAgencyFull={isAgencyFull} />}
         </main>
       </div>
       {gameState.breakingNews && <BreakingNewsOverlay news={gameState.breakingNews} onClose={() => setGameState(prev => ({ ...prev, breakingNews: null }))} />}
       {gameState.activeDecision && <DecisionModal decision={gameState.activeDecision} player={players.find(p => p.id === gameState.activeDecision!.playerId)!} onResolve={handleDecision} />}
-      {selectedPlayer && <PlayerModal player={selectedPlayer} teams={teams} onClose={() => setSelectedPlayer(null)} onSign={(id) => setNegotiatingPlayer(players.find(p => p.id === id) || null)} reputation={gameState.reputation} matches={[]} trainingPoints={gameState.trainingPoints} onTrainAttribute={handleTrainAttribute} onNegotiate={() => {setNegotiatingPlayer(selectedPlayer); setSelectedPlayer(null);}} onInteract={() => {setInteractionPlayer(selectedPlayer); setSelectedPlayer(null);}} />}
+      {gameState.week === 52 && gameState.draftPhase === DraftPhase.PRE_DRAFT && (
+        <DraftInvitationModal onAttend={() => { setView('DRAFT'); setGameState(prev => ({ ...prev, draftPhase: DraftPhase.DRAFT_NIGHT })); }} onSimulate={() => {
+           let pick = gameState.currentDraftPick;
+           while(pick <= 60) {
+             const best = gameState.draftProspects.sort((a,b) => b.rating - a.rating)[0];
+             if(best) handleDraftPick(best.id);
+             pick++;
+           }
+           setGameState(prev => ({ ...prev, draftPhase: DraftPhase.POST_DRAFT }));
+        }} />
+      )}
+      {selectedPlayer && <PlayerModal player={selectedPlayer} teams={teams} onClose={() => setSelectedPlayer(null)} onSign={handleInitiateSigning} reputation={gameState.reputation} matches={[]} trainingPoints={gameState.trainingPoints} onTrainAttribute={handleTrainAttribute} onNegotiate={() => {setNegotiatingPlayer(selectedPlayer); setSelectedPlayer(null);}} onInteract={() => {setInteractionPlayer(selectedPlayer); setSelectedPlayer(null);}} isAgencyFull={isAgencyFull} />}
       {interactionPlayer && <InteractionModal player={interactionPlayer} onInteract={handleInteract} onClose={() => setInteractionPlayer(null)} cash={gameState.cash} />}
       {selectedTeam && <TeamModal team={selectedTeam} players={players.filter(p => p.teamId === selectedTeam.id)} onClose={() => setSelectedTeam(null)} onSelectPlayer={setSelectedPlayer} />}
       {selectedManager && <ManagerModal manager={selectedManager} team={teams.find(t => t.id === selectedManager.teamId)} onClose={() => setSelectedManager(null)} />}
-      {negotiatingPlayer && <NegotiationModal player={negotiatingPlayer} managerName={gameState.managerName} agencyName={gameState.agencyName} onNegotiate={(pid, com, tcom) => { const signingFee = getSigningFee(negotiatingPlayer); if (gameState.cash < signingFee) { sounds.error(); alert("Insufficient cash for bonus."); return; } setGameState(prev => ({...prev, cash: prev.cash - signingFee, reputation: prev.reputation + 5})); setPlayers(p => p.map(x => x.id === pid ? {...x, isClient: true, agentCommission: com, transferCommission: tcom} : x)); setNegotiatingPlayer(null); }} onClose={() => setNegotiatingPlayer(null)} />}
+      {negotiatingPlayer && <NegotiationModal player={negotiatingPlayer} managerName={gameState.managerName} agencyName={gameState.agencyName} onNegotiate={(pid, com, tcom) => { const signingFee = getSigningFee(negotiatingPlayer); if (gameState.cash < signingFee) { sounds.error(); alert("Insufficient cash for bonus."); return; } setGameState(prev => ({...prev, cash: prev.cash - signingFee, reputation: prev.reputation + 2})); setPlayers(p => p.map(x => x.id === pid ? {...x, isClient: true, agentCommission: com, transferCommission: tcom} : x)); setNegotiatingPlayer(null); }} onClose={() => setNegotiatingPlayer(null)} />}
       {selectedMatch && <MatchModal match={selectedMatch} teams={teams} players={players} onClose={() => setSelectedMatch(null)} onSelectPlayer={setSelectedPlayer} />}
       {gameState.isBankrupt && <BankruptcyModal onBailout={handleBailout} onRestart={() => window.location.reload()} />}
       {showFinanceBreakdown && <FinanceBreakdownModal gameState={gameState} players={players} teams={teams} onClose={() => setShowFinanceBreakdown(false)} />}
+      {showExitConfirm && <ExitConfirmModal isVIP={gameState.isPremium} onCancel={() => setShowExitConfirm(false)} onExitWithoutSave={performFinalExit} onSaveAndExit={handleSaveAndExit} />}
+      {showSaveSuccess && <SaveSuccessModal onClose={() => setShowSaveSuccess(false)} />}
       {activeAchievement && <AchievementToast achievement={activeAchievement} onClose={() => setActiveAchievement(null)} />}
     </div>
   );

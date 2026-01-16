@@ -85,6 +85,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
       return;
     }
     sounds.success();
+    sounds.playBGM();
     onStartNew(managerName, agencyName, selectedSlot);
   };
 
@@ -153,7 +154,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
 
             <div className="space-y-2 animate-in fade-in zoom-in-95 duration-700">
               <button 
-                onClick={() => { sounds.click(); setShowNewGame(true); }}
+                onClick={() => { sounds.click(); sounds.playBGM(); setShowNewGame(true); }}
                 className="w-full group relative overflow-hidden bg-gradient-to-r from-orange-500 to-red-600 text-white font-black py-4 md:py-5 rounded-2xl text-sm md:text-base uppercase tracking-[0.2em] transition-all hover:brightness-110 active:scale-95 shadow-[0_10px_30px_rgba(234,88,12,0.3)]"
               >
                 Launch Career
@@ -176,7 +177,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <button 
-                  onClick={() => onLoadSave(1)}
+                  onClick={() => { sounds.playBGM(); onLoadSave(1); }}
                   disabled={!saveSlots[1]}
                   className={`py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest border transition-all flex flex-col items-center justify-center space-y-1 ${
                     saveSlots[1] 
@@ -189,7 +190,7 @@ const LandingPage: React.FC<LandingPageProps> = ({
                 </button>
 
                 <button 
-                  onClick={() => isPremium ? (saveSlots[2] ? onLoadSave(2) : setShowNewGame(true)) : handleShowStore()}
+                  onClick={() => isPremium ? (saveSlots[2] ? (sounds.playBGM(), onLoadSave(2)) : (sounds.playBGM(), setShowNewGame(true))) : handleShowStore()}
                   className={`py-4 rounded-2xl text-[9px] font-black uppercase tracking-widest border transition-all flex flex-col items-center justify-center space-y-1 ${
                     !isPremium 
                     ? 'bg-zinc-900/80 border-zinc-800 text-zinc-600' 

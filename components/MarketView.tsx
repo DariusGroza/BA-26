@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Player, Position } from '../types';
 import { formatCurrency, getRequiredReputation } from '../utils';
@@ -8,9 +7,10 @@ interface MarketViewProps {
   onSign: (id: string) => void;
   onSelectPlayer: (p: Player) => void;
   reputation: number;
+  isAgencyFull: boolean;
 }
 
-const MarketView: React.FC<MarketViewProps> = ({ players, onSign, onSelectPlayer, reputation }) => {
+const MarketView: React.FC<MarketViewProps> = ({ players, onSign, onSelectPlayer, reputation, isAgencyFull }) => {
   const [filter, setFilter] = useState<Position | 'ALL'>('ALL');
 
   const filtered = players.filter(p => filter === 'ALL' || p.position === filter)
@@ -54,6 +54,8 @@ const MarketView: React.FC<MarketViewProps> = ({ players, onSign, onSelectPlayer
               filtered.map(p => {
                 // Fix: Pass the player object instead of rating
                 const reqRep = getRequiredReputation(p);
+                const canSign = reputation >= reqRep && !isAgencyFull;
+                
                 return (
                   <tr key={p.id} className="hover:bg-white/[0.02] group transition-colors">
                     <td className="px-8 py-6 flex items-center cursor-pointer" onClick={() => onSelectPlayer(p)}>
@@ -77,10 +79,16 @@ const MarketView: React.FC<MarketViewProps> = ({ players, onSign, onSelectPlayer
                     <td className="px-8 py-6 text-right">
                       <button 
                         onClick={() => onSign(p.id)}
-                        disabled={reputation < reqRep}
-                        className={`font-black py-3 px-6 rounded-xl text-[10px] uppercase tracking-widest transition-all shadow-lg active:scale-95 ${reputation >= reqRep ? 'bg-white text-black hover:bg-orange-600 hover:text-white' : 'bg-white/5 text-gray-600 cursor-not-allowed'}`}
+                        disabled={!canSign}
+                        className={`font-black py-3 px-6 rounded-xl text-[10px] uppercase tracking-widest transition-all shadow-lg active:scale-95 ${
+                          isAgencyFull 
+                          ? 'bg-red-500/10 text-red-500 border border-red-500/20 cursor-not-allowed'
+                          : canSign 
+                            ? 'bg-white text-black hover:bg-orange-600 hover:text-white' 
+                            : 'bg-white/5 text-gray-600 cursor-not-allowed'
+                        }`}
                       >
-                        {reputation >= reqRep ? 'Represent' : `Need ${reqRep} Rep`}
+                        {isAgencyFull ? 'FULL' : reputation >= reqRep ? 'Represent' : `Need ${reqRep} Rep`}
                       </button>
                     </td>
                   </tr>

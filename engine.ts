@@ -26,7 +26,7 @@ const BAD_EVENTS: Omit<GameDecision, 'id' | 'playerId'>[] = [
     description: 'An offshore account tied to your agency is flagged. The league is freezing assets during the probe.',
     category: 'LEGAL',
     options: [
-      { id: 'i1', label: 'Cooperate', description: 'Lose 20% of your cash immediately.', effects: { cash: -500000, reputation: 10 } },
+      { id: 'i1', label: 'Cooperate', description: 'Lose 20% of your cash immediately.', effects: { cash: -500000, reputation: 10 } }, // Low rep gain
       { id: 'i2', label: 'Hide Evidence', description: 'Keep the cash, but lose 50 Influence.', effects: { influence: -50, reputation: -20 } }
     ]
   }
@@ -38,7 +38,7 @@ const GOOD_EVENTS: Omit<GameDecision, 'id' | 'playerId'>[] = [
     description: 'A viral "game of the year" performance has skyrocketed his market value. Brands are knocking.',
     category: 'LEGACY',
     options: [
-      { id: 'g1', label: 'Global Media Pivot', description: 'Sign the movie deals.', effects: { cash: 2000000, reputation: 40, potential: 5, coachTrust: -5 } },
+      { id: 'g1', label: 'Global Media Pivot', description: 'Sign the movie deals.', effects: { cash: 2000000, reputation: 15, potential: 5, coachTrust: -5 } }, // Rep reduced from 40 to 15
       { id: 'g2', label: 'The Grinder Path', description: 'Ignore the fame. Stay in the gym.', effects: { rating: 5, coachTrust: 25, potential: 2, morale: 20 } }
     ]
   }
@@ -65,12 +65,24 @@ export const advanceWeek = (
   let inflationFactor = 1.0;
   let bonusAcademyPlayers: Player[] = [];
   
+  // Phase Management
+  let leaguePhase = currentState.leaguePhase;
+  let draftPhase = currentState.draftPhase;
+
   if (nextWeek > 52) {
     finalNextWeek = 1;
     currentYear += 1;
     isNewYear = true;
     inflationFactor = 1.03 + (Math.random() * 0.04);
+    leaguePhase = LeaguePhase.REGULAR_SEASON;
+    draftPhase = DraftPhase.PRE_DRAFT;
     notifications.push({ id: generateId(), title: 'Happy New Year!', message: `The ${currentYear} season has officially begun. Annual graduates are arriving.`, week: 1, type: 'success' });
+  } else if (finalNextWeek === 42) {
+    leaguePhase = LeaguePhase.PLAYOFFS;
+    notifications.push({ id: generateId(), title: 'Playoffs Start', message: 'The regular season is over. The bracket is set.', week: finalNextWeek, type: 'info' });
+  } else if (finalNextWeek === 50) {
+    leaguePhase = LeaguePhase.OFFSEASON;
+    notifications.push({ id: generateId(), title: 'Season Conclusion', message: 'The Finals have ended. Offseason protocols engaged.', week: finalNextWeek, type: 'info' });
   }
 
   let loanInterest = 0;
@@ -86,14 +98,13 @@ export const advanceWeek = (
       return t;
     }
     
-    // ACADEMY BENEFIT: Yearly Youth Graduation
     if (isNewYear && t.academyLevel > 0) {
       const graduate = generatePlayer(t.id, true, false);
       const ratingBump = (t.academyLevel - 1) * 6;
       const potentialBump = (t.academyLevel - 1) * 5;
       graduate.rating = Math.min(88, 65 + ratingBump + Math.floor(Math.random() * 5));
       graduate.stats.potential = Math.min(99, 78 + potentialBump);
-      graduate.name += " (H.G.)"; // Home Grown
+      graduate.name += " (H.G.)";
       bonusAcademyPlayers.push(graduate);
       t.roster.push(graduate.id);
       
@@ -102,7 +113,6 @@ export const advanceWeek = (
       }
     }
 
-    // STADIUM BENEFIT: Revenue Multiplier (25% per level)
     const stadiumMultiplier = 1 + ((t.stadiumLevel - 1) * 0.25);
     const baseRev = ((t.rating * 160 * (t.ticketPrice || 120)) + (t.rating * 1200)) * stadiumMultiplier;
 
@@ -167,7 +177,6 @@ export const advanceWeek = (
     }
 
     if (newP.injuryWeeks > 0) {
-      // MEDICAL BENEFIT: Faster recovery speed (15% per level)
       const recoveryBoost = pTeam ? (pTeam.medicalLevel - 1) * 0.15 : 0;
       if (Math.random() < recoveryBoost) {
         newP.injuryWeeks = Math.max(0, newP.injuryWeeks - 2);
@@ -179,25 +188,27 @@ export const advanceWeek = (
   });
 
   const newPlayedMatches: Match[] = [];
-  if (currentState.leaguePhase === LeaguePhase.REGULAR_SEASON) {
+  if (leaguePhase === LeaguePhase.REGULAR_SEASON) {
+    // Pro Matches
     const proTeams = updatedTeams.filter(t => !t.isUniversity);
     const shuffledPro = [...proTeams].sort(() => Math.random() - 0.5);
     for (let i = 0; i < shuffledPro.length; i += 2) {
       if (shuffledPro[i + 1]) {
         const m = simulateMatch(shuffledPro[i], shuffledPro[i + 1], finalNextWeek, false, updatedPlayers);
-        
-        // MEDICAL BENEFIT: Injury Prevention (15% reduction per level)
-        m.details?.topPerformers.forEach(tp => {
-          const p = updatedPlayers.find(up => up.name === tp.name);
-          if (p && p.injuryWeeks > 0) {
-             const team = updatedTeams.find(t => t.id === p.teamId);
-             if (team && Math.random() < (team.medicalLevel - 1) * 0.15) {
-                p.injuryWeeks = 0; // Prevented by medical staff
-                p.injuryType = null;
-             }
-          }
-        });
+        newPlayedMatches.push(m);
+        const winnerId = m.homeScore > m.awayScore ? m.homeTeamId : m.awayTeamId;
+        const loserId = m.homeScore > m.awayScore ? m.awayTeamId : m.homeTeamId;
+        updatedTeams.find(t => t.id === winnerId)!.wins++; 
+        updatedTeams.find(t => t.id === loserId)!.losses++;
+      }
+    }
 
+    // University (NCAB) Matches
+    const uniTeamsPool = updatedTeams.filter(t => t.isUniversity);
+    const shuffledUni = [...uniTeamsPool].sort(() => Math.random() - 0.5);
+    for (let i = 0; i < shuffledUni.length; i += 2) {
+      if (shuffledUni[i + 1]) {
+        const m = simulateMatch(shuffledUni[i], shuffledUni[i + 1], finalNextWeek, true, updatedPlayers);
         newPlayedMatches.push(m);
         const winnerId = m.homeScore > m.awayScore ? m.homeTeamId : m.awayTeamId;
         const loserId = m.homeScore > m.awayScore ? m.awayTeamId : m.homeTeamId;
@@ -207,7 +218,6 @@ export const advanceWeek = (
     }
   }
 
-  // SCOUTING BENEFIT: Weekly Scouting Point Yield
   const ownedTeam = updatedTeams.find(t => t.id === currentState.managedTeamId);
   const bonusSP = ownedTeam ? Math.floor(ownedTeam.scoutingLevel * 1.5) : 0;
 
@@ -231,6 +241,8 @@ export const advanceWeek = (
       ...currentState, 
       week: finalNextWeek, 
       year: currentYear, 
+      leaguePhase,
+      draftPhase,
       cash: currentState.cash + income + investmentYield - totalWeeklyExpenses - loanInterest,
       scoutingPoints: currentState.scoutingPoints + bonusSP,
       loans: updatedLoans, 
@@ -240,7 +252,7 @@ export const advanceWeek = (
     },
     updatedPlayers, 
     updatedTeams, 
-    newMatches: newPlayedMatches.concat(matches).slice(0, 400),
+    newMatches: newPlayedMatches.concat(matches).slice(0, 800), // Increased buffer for uni matches
     newManagers
   };
 };

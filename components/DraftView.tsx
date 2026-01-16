@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { GameState, Player, DraftPhase, ScoutingLevel, Team } from '../types';
 import { formatCurrency } from '../utils';
@@ -13,9 +12,10 @@ interface DraftViewProps {
   onSelectPlayer: (p: Player) => void;
   onSelectTeam: (t: Team) => void;
   onFinishDraft: () => void;
+  isAgencyFull: boolean;
 }
 
-const DraftView: React.FC<DraftViewProps> = ({ gameState, teams, prospects, setGameState, onPick, onSign, onSelectPlayer, onSelectTeam, onFinishDraft }) => {
+const DraftView: React.FC<DraftViewProps> = ({ gameState, teams, prospects, setGameState, onPick, onSign, onSelectPlayer, onSelectTeam, onFinishDraft, isAgencyFull }) => {
   const [lotteryRevealed, setLotteryRevealed] = useState<string[]>([]);
   const [isSimulating, setIsSimulating] = useState(false);
 
@@ -64,8 +64,18 @@ const DraftView: React.FC<DraftViewProps> = ({ gameState, teams, prospects, setG
                 <h4 className="text-[10px] font-bold text-white text-center leading-tight truncate w-full">{p.name}</h4>
                 <p className="text-[8px] text-orange-500 font-black mt-1">{p.position}</p>
                 <div className="mt-3 w-full space-y-1">
-                  <button onClick={() => onSign(p.id)} disabled={p.isClient} className={`w-full py-1.5 text-[8px] font-black uppercase rounded-lg ${p.isClient ? 'bg-green-500/20 text-green-500' : 'bg-white text-black hover:bg-orange-600 hover:text-white'}`}>
-                    {p.isClient ? 'REPRESENTED' : 'SIGN'}
+                  <button 
+                    onClick={() => onSign(p.id)} 
+                    disabled={p.isClient || (!p.isClient && isAgencyFull)} 
+                    className={`w-full py-1.5 text-[8px] font-black uppercase rounded-lg ${
+                      p.isClient 
+                      ? 'bg-green-500/20 text-green-500' 
+                      : isAgencyFull 
+                        ? 'bg-red-500/10 text-red-500 cursor-not-allowed border border-red-500/20'
+                        : 'bg-white text-black hover:bg-orange-600 hover:text-white'
+                    }`}
+                  >
+                    {p.isClient ? 'REPRESENTED' : isAgencyFull ? 'FULL' : 'SIGN'}
                   </button>
                 </div>
               </div>

@@ -13,10 +13,32 @@ export const formatCurrency = (amount: number) => {
 
 export const getRequiredReputation = (player: Player): number => {
   const rating = player.rating;
-  if (player.isYouth) return 10 + Math.max(0, (player.stats.potential - 70) * 2);
-  if (rating < 80) return Math.max(0, rating - 60);
-  if (rating < 90) return (rating - 80) * 4 + 20;
-  return (rating - 90) * 15 + 60;
+  
+  // Academy players are easier to sign if you found them
+  if (player.isYouth) return 5 + Math.max(0, (player.stats.potential - 70));
+
+  // 0-60 Rating: Free (0 Rep)
+  if (rating <= 60) return 0;
+  
+  // 61-70 Rating: Low Cost (0.5 Rep per point)
+  // 70 OVR = 5 Rep (Exact starting amount)
+  if (rating <= 70) return Math.floor((rating - 60) * 0.5); 
+  
+  // 71-75 Rating: The "Pro" Wall (3 Rep per point)
+  // 75 OVR = 20 Rep
+  if (rating <= 75) return 5 + (rating - 70) * 3;
+  
+  // 76-80 Rating: Elite Tier (5 Rep per point)
+  // 80 OVR = 45 Rep
+  if (rating <= 80) return 20 + (rating - 75) * 5;
+  
+  // 81-85 Rating: Star Tier (7 Rep per point)
+  // 85 OVR = 80 Rep
+  if (rating <= 85) return 45 + (rating - 80) * 7;
+  
+  // 86+ Rating: Legend Tier
+  // 90 OVR = 125 Rep
+  return 80 + (rating - 85) * 9;
 };
 
 export const getSigningFee = (player: Player | null): number => {
@@ -136,12 +158,13 @@ export const simulateMatch = (home: Team, away: Team, week: number, isYouthMatch
       p.seasonStats.ast += ast;
       p.seasonStats.gamesPlayed += 1;
       p.seasonStats.minutesPerGame = (p.seasonStats.minutesPerGame * (p.seasonStats.gamesPlayed - 1) + minutes) / p.seasonStats.gamesPlayed;
-      topPerformers.push({ name: p.name, face: p.face, pts, reb, ast, teamId: team.id, minutes });
+      topPerformers.push({ id: p.id, name: p.name, face: p.face, pts, reb, ast, teamId: team.id, minutes });
     });
   });
+  const sortedStats = topPerformers.sort((a,b) => b.pts - a.pts);
   return {
     id: generateId(), homeTeamId: home.id, awayTeamId: away.id, homeScore: homeTotal, awayScore: awayTotal, week, isPlayed: true, isYouthMatch,
-    details: { quarterScores, topPerformers: topPerformers.sort((a,b) => b.pts - a.pts).slice(0, 10), playerOfTheGame: topPerformers.sort((a,b) => b.pts - a.pts)[0] }
+    details: { quarterScores, topPerformers: sortedStats.slice(0, 10), playerOfTheGame: sortedStats[0] }
   };
 };
 
@@ -151,22 +174,28 @@ class SoundManager {
   private bgm: HTMLAudioElement | null = null;
   private isMuted: boolean = false;
   private currentVolume: number = 0.5;
+  private isInitialized: boolean = false;
 
   private async init() {
-    if (this.ctx) {
-      if (this.ctx.state === 'suspended') await this.ctx.resume();
+    if (this.isInitialized) {
+      if (this.ctx && this.ctx.state === 'suspended') await this.ctx.resume();
       return;
     }
+    
     try {
       this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       this.masterGain = this.ctx.createGain();
       this.masterGain.connect(this.ctx.destination);
-      // Using a reliably Public Domain / Creative Commons 0 music source (Free Music Archive / Public Domain Project)
-      this.bgm = new Audio('https://ia800109.us.archive.org/16/items/pdp_theme_loops/pdp_hiphop_loop_01.mp3');
+      
+      // Use a more modern and reliable synth loop for 2026 vibes
+      this.bgm = new Audio('https://cdn.pixabay.com/audio/2022/03/15/audio_733560f862.mp3'); 
       this.bgm.loop = true;
       this.bgm.volume = this.currentVolume * 0.3;
+      this.isInitialized = true;
+      
+      if (this.ctx.state === 'suspended') await this.ctx.resume();
     } catch (e) {
-      console.warn("Audio Context init failed.");
+      console.warn("Audio Context init failed:", e);
     }
   }
 
@@ -175,7 +204,7 @@ class SoundManager {
     if (this.masterGain) this.masterGain.gain.value = mute ? 0 : 1;
     if (this.bgm) {
       if (mute) this.bgm.pause();
-      else this.bgm.play().catch(() => {});
+      else if (!this.bgm.paused) this.bgm.play().catch(() => {});
     }
   }
 
@@ -184,12 +213,13 @@ class SoundManager {
     if (this.bgm) this.bgm.volume = this.isMuted ? 0 : v * 0.3;
   }
 
-  playBGM() {
-    this.init().then(() => {
-      if (!this.isMuted && this.bgm) {
-        this.bgm.play().catch(() => {});
-      }
-    });
+  async playBGM() {
+    await this.init();
+    if (!this.isMuted && this.bgm) {
+      this.bgm.play().catch(e => {
+        console.warn("BGM Play failed (interaction required):", e);
+      });
+    }
   }
 
   private async osc(freq: number, type: OscillatorType, dur: number, vol: number = 0.1) {

@@ -211,6 +211,7 @@ export interface Match {
   seriesGame?: number;
   details?: {
     playerOfTheGame?: {
+      id: string;
       name: string;
       face: string;
       pts: number;
@@ -220,6 +221,7 @@ export interface Match {
     };
     quarterScores: number[][];
     topPerformers: {
+      id: string;
       name: string;
       face: string;
       pts: number;
@@ -269,6 +271,7 @@ export interface Scout {
   efficiency: number; 
   salary: number;
   hiredWeek: number;
+  hiredYear?: number;
 }
 
 export interface PlayoffSeries {
@@ -315,6 +318,7 @@ export interface GameState {
   draftProspects: Player[];
   universityPlayers: Player[]; 
   scouts: Scout[]; 
+  consumedScoutReports: string[];
   scoutingProgress: number; 
   scoutReport: Player[]; 
   draftOrder: string[]; 
